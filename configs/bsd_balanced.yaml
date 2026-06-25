@@ -1,0 +1,24 @@
+# Main per-category benchmark: BSD balanced subset (2492 files, 23 classes).
+# Class-stratified, so per-class metrics are directly comparable. Files live in
+# the BWE repo (the `link` column is relative to its root) and are referenced in
+# place — nothing is copied into this repo.
+#   python -m encodec_eval.run --config configs/bsd_balanced.yaml
+#
+# Start with bandwidth: [6.0] for a fast first table, then add the full sweep.
+
+eval:
+  device: cpu
+  sr: 24000
+  bandwidths: [1.5, 6.0, 24.0]
+  output_dir: results/bsd_balanced
+
+metrics: [lsd, si_snr, mrstft]
+
+datasets:
+  - name: bsd_balanced
+    mode: manifest
+    manifest: /home/am/Documents/upf_smc/yr2/thesis/code/encodec_bandwith_extension/data/bsd_balanced/manifest.csv
+    audio_root: /home/am/Documents/upf_smc/yr2/thesis/code/encodec_bandwith_extension
+    path_col: link               # e.g. data/bsd_balanced/audio/fx-a/69355.wav
+    class_col: cls
+    limit: null

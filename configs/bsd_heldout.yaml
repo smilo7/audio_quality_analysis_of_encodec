@@ -1,0 +1,18 @@
+# Quick sanity slice: BSD held-out test set (19 files, ~1 per class).
+# Files live in the BWE repo and are referenced in place (not copied).
+#   python -m encodec_eval.run --config configs/bsd_heldout.yaml
+
+eval:
+  device: cpu
+  sr: 24000                      # EnCodec 24 kHz native rate
+  bandwidths: [1.5, 3.0, 6.0, 12.0, 24.0]
+  output_dir: results/bsd_heldout
+
+metrics: [lsd, si_snr, mrstft]
+
+datasets:
+  - name: bsd_heldout
+    mode: glob                   # files named "<cls>_<id>.wav"
+    class_sep: "_"
+    audio_root: /home/am/Documents/upf_smc/yr2/thesis/code/encodec_bandwith_extension/data/bsd_heldout_test
+    limit: null
