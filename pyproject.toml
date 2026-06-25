@@ -1,0 +1,16 @@
+[project]
+name = "audio-quality-analysis-of-encodec"
+version = "0.1.0"
+description = "Reference-based benchmark of EnCodec reconstruction artifacts"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "torch>=2.9",
+    "torchaudio>=2.9",
+    "encodec>=0.1.1",
+    "auraloss>=0.4.0",
+    "pyyaml>=6.0",
+    "pandas>=2.0",
+    "tqdm>=4.67",
+    "soundfile>=0.13",
+]
