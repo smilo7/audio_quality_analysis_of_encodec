@@ -72,13 +72,18 @@ def group_quality(df, bitrate, metric, out_dir):
 
 
 def quality_vs_bitrate(df, out_dir):
+    if df.bandwidth.nunique() < 2:
+        return                                  # nothing to plot vs bitrate
     apply_paper_style()
     df = df.copy()
     df["group"] = df.cls.map(group_of)
-    metrics = [("lsd", "Spectral distance (LSD)"),
-               ("si_snr", "SI-SNR"),
-               ("mrstft", "MR-STFT")]
-    fig, axes = plt.subplots(1, 3, figsize=figsize("text", ratio=0.34))
+    candidates = [("lsd", "Spectral distance (LSD)"), ("si_snr", "SI-SNR"),
+                  ("mrstft", "MR-STFT"), ("mel_l1", "log-mel L1")]
+    metrics = [(m, t) for m, t in candidates if m in df.columns]
+    n = len(metrics)
+    fig, axes = plt.subplots(1, n, figsize=figsize("text", ratio=1.0 / max(n, 1)),
+                             squeeze=False)
+    axes = axes[0]
     for ax, (metric, title) in zip(axes, metrics):
         for g in GROUP_ORDER:
             sub = df[df.group == g]
