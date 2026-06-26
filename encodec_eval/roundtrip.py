@@ -30,8 +30,16 @@ def get_processor(device: str = "cpu"):
 
 
 def load_mono(path, target_sr: int = ENCODEC_SR) -> torch.Tensor:
-    """Load -> mono -> resample to the codec rate. Returns [1, T]."""
-    wav, sr = torchaudio.load(str(path))
+    """Load -> mono -> resample to the codec rate. Returns [1, T].
+
+    Reads via soundfile (libsndfile) rather than torchaudio.load: torchaudio 2.9
+    routes load() through torchcodec/FFmpeg, which fails to decode some otherwise
+    valid WAVs ("Invalid data found when processing input"). libsndfile is robust
+    for WAV/FLAC and needs no system FFmpeg.
+    """
+    import soundfile as sf
+    data, sr = sf.read(str(path), dtype="float32", always_2d=True)   # [T, C]
+    wav = torch.from_numpy(data.T)                                    # [C, T]
     if wav.shape[0] > 1:
         wav = wav.mean(0, keepdim=True)
     if sr != target_sr:

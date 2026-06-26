@@ -65,12 +65,19 @@ def run(cfg: dict, force: bool = False):
                     if (ds["name"], str(bw), str(it.stem)) not in done]
             if not todo:
                 continue
-            for it in tqdm(todo, desc=f"{ds['name']} @ {bw}kbps", leave=False):
-                orig = load_mono(it.path, target_sr=sr)
-                orig, recon = roundtrip(orig, bandwidth=bw, device=device)
-                vals = M.compute(recon, orig, which, sr=sr)
+            for i, it in enumerate(tqdm(todo, desc=f"{ds['name']} @ {bw}kbps",
+                                        leave=False)):
+                try:
+                    orig = load_mono(it.path, target_sr=sr)
+                    orig, recon = roundtrip(orig, bandwidth=bw, device=device)
+                    vals = M.compute(recon, orig, which, sr=sr)
+                except Exception as e:
+                    tqdm.write(f"  [skip] {it.path}: {type(e).__name__}: {e}")
+                    continue
                 rows.append({"dataset": ds["name"], "bandwidth": bw,
                              "cls": it.cls, "stem": it.stem, **vals})
+                if (i + 1) % 200 == 0:                     # periodic flush
+                    pd.DataFrame(rows).to_csv(per_file_path, index=False)
             pd.DataFrame(rows).to_csv(per_file_path, index=False)  # checkpoint
 
     df = pd.DataFrame(rows)
