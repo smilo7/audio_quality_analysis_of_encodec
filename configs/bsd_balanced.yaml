@@ -9,10 +9,13 @@
 eval:
   device: cpu
   sr: 24000
-  bandwidths: [1.5, 6.0, 24.0]
+  bandwidths: [1.5, 3.0, 6.0, 12.0, 24.0]
   output_dir: results/bsd_balanced
 
-metrics: [lsd, si_snr, mrstft]
+metrics: [lsd, si_snr, mrstft, mel_l1, pesq, stoi]
+# mcd dropped (inflated/uncomparable on general audio); cdpam too slow on CPU
+# (~11 s/file) -> see configs/cdpam_subset.yaml for a separate exploratory run.
+# pesq/stoi are speech-validated; treat non-speech values as exploratory only.
 
 datasets:
   - name: bsd_balanced

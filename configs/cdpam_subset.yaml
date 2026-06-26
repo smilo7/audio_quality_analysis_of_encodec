@@ -1,0 +1,23 @@
+# CDPAM is a learned perceptual metric (~11 s/file on CPU), so it gets its own
+# small exploratory run rather than the full benchmark. Stratified 3 files/class
+# at a single bitrate (~69 files, ~13 min). CDPAM is speech-leaning, so per-class
+# values on music/soundscapes are exploratory only.
+#   python -m encodec_eval.run --config configs/cdpam_subset.yaml
+
+eval:
+  device: cpu
+  sr: 24000
+  bandwidths: [6.0]
+  output_dir: results/cdpam_subset
+
+metrics: [cdpam, lsd, mel_l1]      # a couple of cheap ones alongside for context
+
+datasets:
+  - name: bsd_balanced
+    mode: manifest
+    manifest: /home/am/Documents/upf_smc/yr2/thesis/code/encodec_bandwith_extension/data/bsd_balanced/manifest.csv
+    audio_root: /home/am/Documents/upf_smc/yr2/thesis/code/encodec_bandwith_extension
+    path_col: link
+    class_col: cls
+    sample_per_class: 3
+    seed: 42

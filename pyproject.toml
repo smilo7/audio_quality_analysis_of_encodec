@@ -13,4 +13,9 @@ dependencies = [
     "pandas>=2.0",
     "tqdm>=4.67",
     "soundfile>=0.13",
+    "matplotlib>=3.7",
+    "pesq>=0.0.4",
+    "pystoi>=0.4",
+    "cdpam>=0.0.6",
+    "resampy>=0.4",
 ]

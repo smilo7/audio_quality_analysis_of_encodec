@@ -1,0 +1,28 @@
+# Full BSD-balanced run on the NUC (milo@nuc-pc), where the data lives at
+#   /home/milo/Documents/uni/thesis/data/bsd_balanced  (incl. manifest.csv)
+#
+#   nohup .venv/bin/python -m encodec_eval.run --config configs/bsd_balanced_nuc.yaml \
+#       > results/bsd_balanced/run.log 2>&1 &
+#
+# Path logic: the manifest's `link` column is RELATIVE, e.g.
+#   data/bsd_balanced/audio/fx-a/69355.wav
+# so audio_root must be the dir that contains `data/...` -> /home/milo/Documents/uni/thesis.
+# If a path is wrong the run aborts immediately with a FileNotFoundError that
+# prints the first missing file, so audio_root is easy to correct.
+
+eval:
+  device: cpu
+  sr: 24000
+  bandwidths: [1.5, 3.0, 6.0, 12.0, 24.0]
+  output_dir: results/bsd_balanced
+
+metrics: [lsd, si_snr, mrstft, mel_l1, pesq, stoi]
+
+datasets:
+  - name: bsd_balanced
+    mode: manifest
+    manifest: /home/milo/Documents/uni/thesis/data/bsd_balanced/manifest.csv
+    audio_root: /home/milo/Documents/uni/thesis
+    path_col: link
+    class_col: cls
+    limit: null

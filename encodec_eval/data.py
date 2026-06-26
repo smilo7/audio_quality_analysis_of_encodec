@@ -13,6 +13,8 @@ Two modes:
 """
 
 import csv
+import random
+from collections import defaultdict
 from pathlib import Path
 
 AUDIO_EXT = {".wav", ".flac", ".mp3", ".aiff", ".aif", ".ogg"}
@@ -49,6 +51,20 @@ def _from_glob(ds: dict):
     return items
 
 
+def _sample_per_class(items, n, seed):
+    """Up to `n` items per class, randomly (seeded) for representativeness."""
+    rng = random.Random(seed)
+    by_cls = defaultdict(list)
+    for it in items:
+        by_cls[it.cls].append(it)
+    out = []
+    for cls in sorted(by_cls):
+        group = by_cls[cls]
+        rng.shuffle(group)
+        out.extend(group[:n])
+    return out
+
+
 def load_items(ds: dict):
     mode = ds.get("mode", "manifest")
     items = _from_manifest(ds) if mode == "manifest" else _from_glob(ds)
@@ -57,5 +73,8 @@ def load_items(ds: dict):
         raise FileNotFoundError(
             f"{len(missing)}/{len(items)} audio files in dataset '{ds['name']}' "
             f"do not exist (first: {missing[0].path}). Check audio_root.")
+    spc = ds.get("sample_per_class")
+    if spc:
+        items = _sample_per_class(items, spc, ds.get("seed", 42))
     limit = ds.get("limit")
     return items[:limit] if limit else items

@@ -12,3 +12,9 @@ wheels/
 
 data/
 datasets/
+legacy/
+docs/
+checkpoints/
+TODO.md
+OLD TODO.md
+results/

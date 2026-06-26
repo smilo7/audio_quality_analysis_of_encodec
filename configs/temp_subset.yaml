@@ -1,0 +1,23 @@
+# TEMPORARY working slice for fast, representative figures while the full run
+# (configs/bsd_balanced.yaml) is triggered separately. Draws a stratified sample
+# from bsd_balanced (itself the 48 kHz balanced subset of the raw BSD files).
+# `sample_per_class: 8` -> up to 8 files per class (23 classes -> ~184 files).
+#   python -m encodec_eval.run --config configs/temp_subset.yaml
+
+eval:
+  device: cpu
+  sr: 24000
+  bandwidths: [1.5, 3.0, 6.0, 12.0, 24.0]
+  output_dir: results/temp_subset
+
+metrics: [lsd, si_snr, mrstft, mel_l1, pesq, stoi]
+
+datasets:
+  - name: bsd_balanced
+    mode: manifest
+    manifest: /home/am/Documents/upf_smc/yr2/thesis/code/encodec_bandwith_extension/data/bsd_balanced/manifest.csv
+    audio_root: /home/am/Documents/upf_smc/yr2/thesis/code/encodec_bandwith_extension
+    path_col: link
+    class_col: cls
+    sample_per_class: 8
+    seed: 42
