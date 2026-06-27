@@ -1,0 +1,37 @@
+# Full (curated, unbalanced) BSD10k run on the NUC — all bitrates.
+# 10,956 files x 5 bitrates ~= 90 h (~4 days) at ~6 s/file. Crash-safe: it
+# checkpoints atomically, keeps rotating + per-bitrate backups, and resumes from
+# the last checkpoint (re-run the same command). Balancing/confidence views are
+# done at analysis time, so the run stays full and representative.
+#
+#   cd <repo>
+#   mkdir -p results/bsd10k
+#   nohup .venv/bin/python -m encodec_eval.run --config configs/bsd10k_nuc.yaml \
+#       > results/bsd10k/run.log 2>&1 &
+#
+# Assumes BSD10k unzipped on the NUC at:
+#   /home/milo/Documents/uni/thesis/data/BSD10K/{audio/<id>.wav, manifest.csv}
+
+eval:
+  device: cpu
+  sr: 24000
+  bandwidths: [1.5, 3.0, 6.0, 12.0, 24.0]
+  output_dir: results/bsd10k
+
+  # --- crash-safety ---
+  checkpoint_every: 100        # atomic write of per_file.csv every N files (~10 min)
+  backup_every: 1000           # rotating timestamped backup every N files (~1.7 h)
+  backup_keep: 8               # how many rotating backups to retain
+  backup_dirs:                 # extra mirror of per_file.csv (different disk/mount)
+    - /media/usb/smc_thesis/bsd10k   # USB on the NUC — must be mounted during the run
+
+metrics: [lsd, si_snr, mrstft, mel_l1, pesq, stoi]
+
+datasets:
+  - name: bsd10k
+    mode: manifest
+    manifest: /home/milo/Documents/uni/thesis/data/BSD10K/manifest.csv
+    audio_root: /home/milo/Documents/uni/thesis/data/BSD10K
+    path_col: link               # audio/<sound_id>.wav
+    class_col: cls
+    limit: null
