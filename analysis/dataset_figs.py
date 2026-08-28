@@ -5,8 +5,18 @@ Dataset-level figures from an encodec_eval per_file.csv:
 
     class_quality      per-class LSD bars at a fixed bitrate, coloured by BST
                        group, sorted worst->best (which sounds it fails on)
-    quality_vs_bitrate LSD and SI-SNR vs bitrate, one line per BST group
+    quality_vs_bitrate the magnitude-spectrogram metrics (LSD / MR-STFT /
+                       log-mel L1) vs bitrate, one line per BST group
                        (bitrate-quality tradeoff; speech bias)
+    waveform_fidelity  SI-SNR vs bitrate, on its own axes
+
+SI-SNR is kept out of the quality figure on purpose. The three spectral metrics
+are near-redundant (per-file Spearman 0.70-0.94 on bsd10k @ 6 kbps) while SI-SNR
+is orthogonal to all of them (0.09-0.15) and orders the categories against them,
+because it is the only waveform-domain metric and so the only one that sees the
+decoder regenerating noise rather than reproducing it. See `analysis.noiselike`
+for the evidence; presenting it as a fourth panel reads as a fourth opinion on
+reconstruction quality, which it is not.
 
 Run:
     python -m analysis.dataset_figs --csv results/temp_subset/per_file.csv
@@ -71,20 +81,41 @@ def group_quality(df, bitrate, metric, out_dir):
     plt.close(fig)
 
 
+SPECTRAL_METRICS = [("lsd", "Log-spectral distance"),
+                    ("mrstft", "Multi-resolution STFT"),
+                    ("mel_l1", "Log-mel L1")]
+
+
+def _bitrate_axis(ax, bitrates):
+    ax.set_xscale("log")
+    ax.set_xticks(bitrates)
+    ax.set_xticklabels([f"{b:g}" for b in bitrates])   # "3" not "3.0"; keep "1.5"
+    ax.minorticks_off()
+    ax.set_xlabel("Bitrate (kbps)")
+
+
 def quality_vs_bitrate(df, out_dir):
+    """Magnitude-spectrogram metrics only (LSD / MR-STFT / log-mel L1).
+
+    SI-SNR is deliberately not in this figure: it is a waveform metric and
+    ranks the categories against these three (see `waveform_fidelity_vs_bitrate`
+    and `analysis.noiselike`), so putting it in the same grid invites reading it
+    as a fourth opinion on the same quantity.
+    """
     if df.bandwidth.nunique() < 2:
         return                                  # nothing to plot vs bitrate
     apply_paper_style()
     df = df.copy()
     df["group"] = df.cls.map(group_of)
-    candidates = [("lsd", "Spectral distance (LSD)"), ("si_snr", "SI-SNR"),
-                  ("mrstft", "MR-STFT"), ("mel_l1", "log-mel L1")]
-    metrics = [(m, t) for m, t in candidates if m in df.columns]
+    metrics = [(m, t) for m, t in SPECTRAL_METRICS if m in df.columns]
     n = len(metrics)
-    fig, axes = plt.subplots(1, n, figsize=figsize("text", ratio=1.0 / max(n, 1)),
+    if not n:
+        return
+    fig, axes = plt.subplots(1, n, figsize=figsize("text", ratio=0.34),
                              squeeze=False)
-    axes = axes[0]
-    for ax, (metric, title) in zip(axes, metrics):
+    flat = axes.flatten()
+    bitrates = sorted(df.bandwidth.unique())
+    for ax, (metric, title) in zip(flat, metrics):
         for g in GROUP_ORDER:
             sub = df[df.group == g]
             if sub.empty:
@@ -93,25 +124,59 @@ def quality_vs_bitrate(df, out_dir):
             ax.plot(curve.index, curve.values, marker="o", ms=3,
                     color=group_color(g), label=g)
         ovr = df.groupby("bandwidth")[metric].mean()
-        ax.plot(ovr.index, ovr.values, "k--", lw=1.2, label="all")
-        ax.set_xscale("log")
-        ax.set_xticks(sorted(df.bandwidth.unique()))
-        ax.get_xaxis().set_major_formatter(plt.ScalarFormatter())
-        ax.minorticks_off()
-        ax.set_xlabel("Bitrate (kbps)")
+        ax.plot(ovr.index, ovr.values, "k--", lw=1.2, label="All")
+        _bitrate_axis(ax, bitrates)
         ax.set_ylabel(_label(metric))
         ax.set_title(title)
-    axes[-1].legend(fontsize=6, ncol=2)
-    fig.suptitle("Reconstruction quality vs bitrate, by sound category")
+    # one shared legend outside the panels, so no curve is ever occluded
+    fig.legend(*flat[0].get_legend_handles_labels(),
+               loc="outside right center", fontsize=7)
+    # aggregation (mean over files) belongs in the LaTeX caption, not on the axes
+    fig.suptitle("Reconstruction quality vs. bitrate, by sound category")
     save_fig(fig, "quality_vs_bitrate", fig_dir=out_dir)
+    plt.close(fig)
+
+
+def waveform_fidelity_vs_bitrate(df, out_dir, metric="si_snr"):
+    """SI-SNR vs bitrate, on its own axes and framed as waveform fidelity.
+
+    Plotted as median with an IQR band rather than a mean: SI-SNR is heavily
+    left-tailed (per-file minima below -80 dB) and the group ordering is not
+    stable under the mean. Low values on noise-like material indicate that the
+    decoder resynthesised the signal rather than that it degraded it.
+    """
+    if metric not in df.columns or df.bandwidth.nunique() < 2:
+        return
+    apply_paper_style()
+    df = df.copy()
+    df["group"] = df.cls.map(group_of)
+    fig, ax = plt.subplots(figsize=figsize("column", ratio=0.75))
+    bitrates = sorted(df.bandwidth.unique())
+    for g in GROUP_ORDER:
+        sub = df[df.group == g]
+        if sub.empty:
+            continue
+        q = sub.groupby("bandwidth")[metric].quantile([0.25, 0.5, 0.75]).unstack()
+        ax.plot(q.index, q[0.5], marker="o", ms=3, color=group_color(g), label=g)
+        ax.fill_between(q.index, q[0.25], q[0.75],
+                        color=group_color(g), alpha=0.12, linewidth=0)
+    ovr = df.groupby("bandwidth")[metric].median()
+    ax.plot(ovr.index, ovr.values, "k--", lw=1.2, label="All")
+    ax.axhline(0, color="0.4", lw=0.6, ls=":")   # below: residual exceeds signal
+    _bitrate_axis(ax, bitrates)
+    ax.set_ylabel(_label(metric))
+    ax.set_title("Waveform fidelity vs. bitrate, by sound category")
+    ax.legend(fontsize=6, ncol=2, loc="lower right",
+              frameon=True, framealpha=0.9, edgecolor="none")
+    save_fig(fig, f"{metric}_vs_bitrate", fig_dir=out_dir)
     plt.close(fig)
 
 
 def _label(metric):
     return {"lsd": "LSD (dB) ↓", "si_snr": "SI-SNR (dB) ↑",
-            "mrstft": "MR-STFT ↓", "mel_l1": "log-mel L1 ↓",
+            "mrstft": "MR-STFT ↓", "mel_l1": "Log-mel L1 ↓",
             "pesq": "PESQ ↑", "stoi": "STOI ↑",
-            "mcd": "MCD ↓", "cdpam": "CDPAM ↓"}.get(metric, metric)
+            "mcd": "MCD (dB) ↓", "cdpam": "CDPAM ↓"}.get(metric, metric)
 
 
 def main():
@@ -129,6 +194,7 @@ def main():
             class_quality(df, bitrate, metric, out_dir)
             group_quality(df, bitrate, metric, out_dir)
     quality_vs_bitrate(df, out_dir)
+    waveform_fidelity_vs_bitrate(df, out_dir)
     print(f"dataset figures -> {out_dir} (metrics: {metric_cols} @ {bitrate:g} kbps)")
 
 
